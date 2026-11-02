@@ -1,7 +1,6 @@
 # 需求端与产业链运行逻辑分析 Skill · 双轨（入口说明）
 
-> 本文件是资料库入口说明。完整 Skill 位于本地：
-> `C:\Users\12236\Desktop\常识\industry-logic-analysis\`
+> 本文件是资料库入口说明。
 > 版本 1.1.0（2026-11-02 新增 company 轨）
 
 ---
@@ -250,8 +249,6 @@ industry-logic-analysis/
 │  └─ helpers/                  初始化 / 查重 / SOP 时效校验
 └─ tests/                       4 组用例与期望输出
 ```
-
-**外部权威源**（单向同步）：`C:/Users/12236/WorkBuddy/研究顾问方法论.md` 是 company 轨规则的唯一权威源。
 
 常用命令：
 
