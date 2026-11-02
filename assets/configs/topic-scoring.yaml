@@ -1,0 +1,51 @@
+# 选题五维打分配置
+# 用于 Phase 0 自动选题。打分明细必须写入 0-frame.md 留痕。
+
+version: "1.0"
+
+dimensions:
+  - id: data_availability
+    name: 数据可查性
+    type: veto              # 一票否决
+    check: 动笔前做 1—2 次实际检索，确认 L0/L1/L2 各至少一类可得
+    on_fail: 换标的，并在 ledger 注明「数据不足已跳过」
+    evidence_required: true # 必须留下检索结果与来源
+
+  - id: life_relevance
+    name: 生活可感性
+    range: [1, 5]
+    check: 读者日常能否碰到
+    eliminate_below: 2
+
+  - id: mechanism_uniqueness
+    name: 机制独特性
+    range: [1, 5]
+    check: 有没有一条别的行业没有的传导链
+    eliminate_below: 3
+    note: 这是本 Skill 的生命线，低于 3 分必淘汰
+
+  - id: novelty
+    name: 新颖性
+    range: [1, 5]
+    source: references/ledger-analysis-topics.md
+    rules:
+      same_level2_interval: 6    # 同一二级细分 ≥6 期
+      same_level3_interval: 12   # 同一三级角度/同一根杠杆 ≥12 期
+      same_life_entry: never     # 生活入口场景不得复用
+    eliminate_if_violated: true
+
+  - id: timeliness
+    name: 当期性
+    type: bonus
+    check: 近期有无「按常识该 A 实际却是 B」的矛盾现象
+    note: 加分项不是必需项，但缺矛盾的文章容易滑向百科词条
+
+interval_rules:
+  level2_min_gap: 6
+  level3_min_gap: 12
+  note: 三级优先于二级——同一二级行业可以再分析，但必须换三级角度
+
+selection_policy:
+  auto_confirm: false        # 选出 top1 直接执行，不需要向用户确认
+  record_score_detail: true  # 打分明细必须写入 0-frame.md
+  on_no_hook: 换标的          # 找不到任何矛盾必定写成百科词条

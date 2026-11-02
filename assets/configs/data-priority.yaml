@@ -1,0 +1,93 @@
+# 数据优先级配置
+# 详见 references/sources/data-source-map.md
+
+version: "1.0"
+
+levels:
+  L0:
+    name: 国家级官方与交易所
+    usage: 结论的首选依据
+    requirement: 必须能落到具体报表或月报名
+    sources:
+      - 国家统计局
+      - 中国人民银行
+      - 海关总署
+      - 财政部
+      - 工信部
+      - 国家发改委
+      - 农业农村部
+      - 上期所 / 大商所 / 郑商所 / 中金所 / 广期所
+      - 证监会 / 交易所（上市公司定期报告与分部数据）
+
+  L1:
+    name: 行业协会一手数据
+    usage: 高频行业数据首选
+    requirement: 必须标注样本口径与偏差方向
+    sources:
+      - 中国汽车工业协会 / 乘联会
+      - 中国有色金属工业协会 / 安泰科
+      - 中国钢铁工业协会
+      - 中国煤炭运销协会
+      - 中国光伏行业协会
+      - 中国物流与采购联合会
+      - 中国畜牧业协会
+
+  L2:
+    name: 专业数据商
+    usage: 可用，须标注机构名 + 样本口径
+    requirement: 不许隐去机构名当作事实引用
+    sources:
+      - Mysteel / 钢联
+      - 卓创资讯
+      - 隆众资讯
+      - 百川盈孚
+      - 涌益咨询
+      - SMM 有色网
+      - Clarksons / Platts / Argus / Fastmarkets / Wood Mackenzie
+
+  L3:
+    name: 国际官方
+    usage: 跨境品种必查
+    sources:
+      - EIA（含 STEO）
+      - USDA / WASDE
+      - USGS 矿产年报
+      - IEA
+      - OPEC MOMR
+      - World Bank Commodity Markets（Pink Sheet）
+      - UN Comtrade / ITC Trade Map
+      - Eurostat / OECD / FAO / IMO / BIS
+
+  L4_L5:
+    name: 券商研报与媒体报道
+    allowed_uses:
+      - 找线索（反向溯源到 L0—L3）
+      - 引用专家实名原话（须署名 + 场合 + 时间）
+      - 交叉印证（作为第二个独立来源）
+    forbidden_uses:
+      - 作为唯一来源
+      - 把预测值写成事实
+      - 转述时不标原始发布方
+
+annotation:
+  required_fields: [来源, 期间, 口径]
+  example: 能繁母猪 3,602 万头（国家统计局，2026Q3 末，季末时点数，同比 −10.7%）
+  transclusion_example: 128 万吨（海关总署，经机构综述转引，2026 年 1—9 月）
+
+freshness_limit_days:
+  monthly: 45
+  quarterly: 105
+  yearly: 400
+  rule: 超过阈值必须重新取数，不许沿用旧读数
+
+prohibited:
+  - 「据媒体报道」「据悉」「市场普遍认为」等无源表述
+  - 把二手转述写成一手来源
+  - 用估算值填补数据缺口
+  - 口径不同的数字放在同一句对比
+  - 引用未标注发布方的高频数据
+
+on_missing:
+  min_sources_to_try: 2
+  action: 登记进数据缺口表，并在正文原样出现
+  never: 不估算填空

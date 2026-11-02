@@ -1,0 +1,125 @@
+# 行业分类路由配置
+# 用途：给搜索起点，不给结论。主链条假设必须被当期实证修正，照抄算缺陷。
+
+version: "1.0"
+
+classes:
+  - id: A
+    name: 资源/大宗商品
+    prefix: commodities
+    examples: [原油, 动力煤, 天然气, 铜, 铝, 锂, 大豆, 玉米, 生猪]
+    key_variables:
+      - 产能投放周期
+      - 开工率
+      - 库存（显性 vs 隐性）
+      - 进口依赖度
+      - 政策保有量/储备
+    chain_hypothesis: 产能决策 → 建设/生长时滞 → 供给释放 → 库存缓冲 → 价格 → 反身性影响下一轮产能决策
+    must_check:
+      - 产能投放节奏表
+      - 进口能否充当泄压阀
+      - 库存是蓄水池还是加速器
+
+  - id: B
+    name: 中游材料加工
+    prefix: materials
+    examples: [PTA, 乙二醇, PVC, 钢铁加工, 水泥, 造纸]
+    key_variables:
+      - 加工费/价差（非绝对价格）
+      - 产能利用率
+      - 原料成本占比
+    chain_hypothesis: 原料价格 − 产品价格 = 加工利润 → 决定开工率 → 供给弹性 → 反过来修正加工费
+    must_check:
+      - 加工费历史分位
+      - 单线产能与边际装置位置
+      - 下游能否接受涨价
+
+  - id: C
+    name: 消费品/零售
+    prefix: consumer
+    examples: [现制茶饮, 家电, 服装, 白酒, 餐饮连锁]
+    key_variables:
+      - 需求分层
+      - 渠道库存
+      - 单店模型
+      - 复购率
+      - 价格带迁移
+    chain_hypothesis: 客流 × 客单价 × 复购 → 同店销售 → 渠道库存 → 补货节奏（牛鞭效应源头）
+    must_check:
+      - 单店 UE（投资回收期）
+      - 加盟 vs 直营结构
+      - 渠道库存天数
+      - 价格带是否在迁移
+
+  - id: D
+    name: 装备/整机制造
+    prefix: equipment
+    examples: [工程机械, 锂电设备, 光伏设备, 船舶, 轨交]
+    key_variables:
+      - 在手订单
+      - 产能爬坡曲线
+      - 折旧杠杆
+      - 交付节奏与收入确认方式
+    chain_hypothesis: 新增订单 → 排产计划 → 交付 → 收入确认（订单是最强领先指标）
+    must_check:
+      - 在手订单覆盖率
+      - 新签订单同比
+      - 产能利用率
+      - 二手设备存量（压制新机需求）
+
+  - id: E
+    name: 平台/服务
+    prefix: platform
+    examples: [本地生活, OTA, SaaS, 物流快递, 招聘平台]
+    key_variables:
+      - 双边网络密度
+      - 单位经济模型（UE）
+      - 获客成本（CAC）与回收周期
+      - 留存 cohorts
+    chain_hypothesis: 供给密度 → 匹配效率（等待时长/成交率） → UE 改善 → 扩张节奏
+    must_check:
+      - 货币化率
+      - 补贴强度与 UE 的背离
+      - 单量 vs 客单价的结构
+      - 留存 cohorts
+
+  - id: F
+    name: 金融/地产
+    prefix: finance
+    examples: [银行, 保险, 券商, 房地产开发, REITs]
+    key_variables:
+      - 利差
+      - 久期错配
+      - 杠杆率
+      - 信用成本
+      - 资产周转
+    chain_hypothesis: 政策利率 → 资产端收益率 vs 负债端成本 → 净息差 → 信用投放意愿 → 资产质量反作用
+    must_check:
+      - 净息差趋势
+      - 不良生成率（非余额不良率）
+      - 拨备覆盖率
+      - 久期缺口
+
+  - id: G
+    name: 科技/半导体/软件
+    prefix: tech
+    examples: [晶圆代工, 存储, 面板, SaaS, EDA]
+    key_variables:
+      - 良率爬坡
+      - 学习曲线
+      - 牛鞭效应
+      - 递延收入
+      - 产能预订率
+    chain_hypothesis: 需求预期 → 下单（超额下单） → 产能预订 → 渠道库存累积 → 砍单 → 断崖式下跌
+    must_check:
+      - 稼动率
+      - 渠道库存周转天数
+      - 递延收入余额
+      - ASP 趋势
+      - 资本开支指引
+
+# 跨类别通用复核（每期必答）
+cross_class_review:
+  - 「本行业实际的主链条与假设一致吗？不一致的话真实那条是什么？」
+  - 「有没有第二重要的机制被假设漏掉了？」
+  - 「我有没有找出一个与流行说法相反的事实？」
