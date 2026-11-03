@@ -3,14 +3,15 @@
 """初始化文章集内某一篇的工作目录。
 
 用法:
-    python init-analysis.py --target "宠物医疗"                 # 集内序号自动取下一篇
-    python init-analysis.py --target "宠物医疗" --issue 3        # 显式指定集内序号
+    python init-analysis.py --target "宠物医疗"                          # 集内序号自动取下一篇
+    python init-analysis.py --target "宠物医疗" --stage 展开 --title "矿端面对的不是一个价"
+    python init-analysis.py --target "宠物医疗" --issue 3 --stage 深挖 --title "仓单与基差"
     python init-analysis.py --target "宠物医疗" --form report
 
 产出:
     <skill_root>/产出/<行业>/                      ← 文章集（Series）
         ├─ _系列索引.md                           ← 若不存在则从模板建骨架（不改写已有索引）
-        └─ 第NN期/                                ← 集内第 NN 篇
+        └─ NN-<阶段>-<标题>/                    ← 集内第 NN 篇（阶段取 开篇／展开／深挖／反例／边界）
              ├─ 0-frame.md
              ├─ 数据表.md
              ├─ 证据索引.md
@@ -42,17 +43,28 @@ def sanitize(name: str) -> str:
 
 
 def next_issue(series_dir: Path) -> int:
-    """集内下一序号：扫描已有 `第NN期*` 目录，取最大 NN + 1；冷启动为 1。"""
+    """集内下一序号：扫描已有 `NN-<阶段>-<标题>` 目录，取最大 NN + 1；冷启动为 1。
+
+    以 `存档-` 开头的目录是被替换的旧稿，不占序号，跳过。
+    """
     if not series_dir.exists():
         return 1
     nums = []
     for p in series_dir.iterdir():
-        if not p.is_dir():
+        if not p.is_dir() or p.name.startswith("存档"):
             continue
-        m = re.match(r"第(\d+)期", p.name)
+        m = re.match(r"(\d+)-", p.name)
         if m:
             nums.append(int(m.group(1)))
     return max(nums) + 1 if nums else 1
+
+
+STAGES = ("开篇", "展开", "深挖", "反例", "边界")
+
+
+def series_dir_name(issue: int, stage: str, title: str) -> str:
+    """目录名 = NN-<阶段>-<正文标题缩略>。"""
+    return f"{issue:02d}-{stage}-{sanitize(title)}" if title else f"{issue:02d}-{stage}"
 
 
 def ensure_series_index(series_dir: Path, industry: str, today: str) -> bool:
@@ -188,6 +200,16 @@ def main() -> int:
     parser.add_argument("--target", required=True, help="行业标的，边界须可界定；同时作为文章集名")
     parser.add_argument("--issue", type=int, default=None, help="集内序号，默认自动取下一篇")
     parser.add_argument(
+        "--stage",
+        default=None,
+        help=f"抽象阶段名，取 {'／'.join(STAGES)}；默认按集内序号推断（01→开篇，其余→展开）",
+    )
+    parser.add_argument(
+        "--title",
+        default="",
+        help="正文标题（可缩略），用于目录名 NN-<阶段>-<标题>；缺省时只编号与阶段",
+    )
+    parser.add_argument(
         "--form", choices=["longform", "report", "brief"], default="longform"
     )
     parser.add_argument(
@@ -200,7 +222,11 @@ def main() -> int:
     safe_target = sanitize(args.target)
     series_dir = out_root / safe_target
     issue = args.issue if args.issue is not None else next_issue(series_dir)
-    issue_dir = series_dir / f"第{issue:02d}期"
+    stage = args.stage or ("开篇" if issue == 1 else "展开")
+    if stage not in STAGES:
+        print(f"[skip] 阶段名须取 {'／'.join(STAGES)}，当前为：{stage}")
+        return 1
+    issue_dir = series_dir / series_dir_name(issue, stage, args.title)
 
     if issue_dir.exists():
         print(f"[skip] 目录已存在：{issue_dir}")

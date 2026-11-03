@@ -14,7 +14,7 @@
 三源检索（--series，对应 P0 的 S2）:
     ① 文章集总台账  references/ledger-analysis-topics.md   §文章集注册表
     ② 本集索引     产出/<行业>/_系列索引.md                  §篇目表 / §已覆盖清单
-    ③ 实际产出目录  产出/<行业>/第NN期*/
+    ③ 实际产出目录  产出/<行业>/NN-<阶段>-<标题>／
 """
 
 import argparse
@@ -157,7 +157,7 @@ def scan_output_dirs(industry: str) -> list[str]:
         return []
     return sorted(
         p.name for p in base.iterdir()
-        if p.is_dir() and p.name.startswith("第") and "期" in p.name
+        if p.is_dir() and re.match(r"[0-9]+-", p.name) and not p.name.startswith("存档")
     )
 
 
