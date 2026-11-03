@@ -1,19 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""初始化本期分析工作目录。
+"""初始化文章集内某一篇的工作目录。
 
 用法:
-    python init-analysis.py --target "生猪养殖" --issue 02
-    python init-analysis.py --target "生猪养殖" --issue 02 --form report
+    python init-analysis.py --target "宠物医疗"                 # 集内序号自动取下一篇
+    python init-analysis.py --target "宠物医疗" --issue 3        # 显式指定集内序号
+    python init-analysis.py --target "宠物医疗" --form report
 
 产出:
-    <skill_root>/产出/<sanitized_target>/第NN期/
-        ├─ 数据表.md        占位（引用 data-sheet-template）
-        ├─ 证据索引.md       占位
-        ├─ 领域分析.md       含七阶段检查点
-        ├─ 正文.md           占位
-        └─ 审校意见.md        占位
-    并在当前期目录写出 0-frame.md 骨架
+    <skill_root>/产出/<行业>/                      ← 文章集（Series）
+        ├─ _系列索引.md                           ← 若不存在则从模板建骨架（不改写已有索引）
+        └─ 第NN期/                                ← 集内第 NN 篇
+             ├─ 0-frame.md
+             ├─ 数据表.md
+             ├─ 证据索引.md
+             ├─ 领域分析.md
+             ├─ 正文.md
+             └─ 审校意见.md
+
+NN 为集内序号，不是全局流水号。
 """
 
 import argparse
@@ -23,6 +28,7 @@ from datetime import date
 from pathlib import Path
 
 WINDOWS_FORBIDDEN = r'[\\/:*?"<>|]'
+SERIES_INDEX_NAME = "_系列索引.md"
 
 
 def skill_root() -> Path:
@@ -35,9 +41,61 @@ def sanitize(name: str) -> str:
     return cleaned or "unnamed"
 
 
-FRAME = """# 0-frame: {target}
+def next_issue(series_dir: Path) -> int:
+    """集内下一序号：扫描已有 `第NN期*` 目录，取最大 NN + 1；冷启动为 1。"""
+    if not series_dir.exists():
+        return 1
+    nums = []
+    for p in series_dir.iterdir():
+        if not p.is_dir():
+            continue
+        m = re.match(r"第(\d+)期", p.name)
+        if m:
+            nums.append(int(m.group(1)))
+    return max(nums) + 1 if nums else 1
 
-> 生成日期：{today}　期号：第 {issue:02d} 期　形态：{form}
+
+def ensure_series_index(series_dir: Path, industry: str, today: str) -> bool:
+    """确保文章集索引存在。已存在时返回 False，不改写其内容（由 P0 的 S6 维护）。"""
+    idx = series_dir / SERIES_INDEX_NAME
+    if idx.exists():
+        return False
+    tpl = skill_root() / "assets" / "templates" / "series-index-template.md"
+    if tpl.exists():
+        content = tpl.read_text(encoding="utf-8")
+        content = content.replace("<行业名>", industry).replace("YYYY-MM-DD", today)
+    else:
+        content = (
+            f"# 文章集索引：{industry}\n\n"
+            f"> 本目录即该行业的文章集。动笔前必读，每篇完成后必追加。\n"
+            f"> 创建日期：{today}\n\n"
+            "## 篇目表\n\n| 序号 | 目录 | 子方向 | 切入视角 | 钩子类型 | 那根杠杆 | 生活入口 | 与已有篇的关系 | 状态 |\n"
+            "|---|---|---|---|---|---|---|---|---|\n\n"
+            "## 已覆盖清单\n\n### 已覆盖子方向\n\n### 已用切入视角 / 那根杠杆\n\n"
+            "### 已用生活入口（不得复用）\n\n### 钩子类型分布\n\n"
+            "## 待覆盖方向\n\n## 排序说明\n\n## 维护记录\n"
+        )
+    idx.write_text(content, encoding="utf-8")
+    return True
+
+
+FRAME = """# 0-frame: {target} · 第 {issue:02d} 篇
+
+> 生成日期：{today}　集内序号：第 {issue:02d} 篇　形态：{form}
+
+## 文章集与组织（S1—S6 留痕）
+- 所属文章集：`产出/{target}/`
+- 索引路径：`产出/{target}/_系列索引.md`
+- 集内序号：第 {issue:02d} 篇（集内计数，非全局流水号）
+- S2 已覆盖清单摘要：<子方向 / 视角 / 生活入口 / 钩子类型分布>
+- S2 判定：<已有研究 / 冷启动>
+- S3 目标具体度：<具体 / 不具体>
+- S4 分支：<S4-A 独立性 / S4-B 去重换视角 / S4-C 基础逻辑开篇>；理由：<...>
+- 本篇子方向：<...>
+- 本篇切入视角：<...>
+- 与已有篇的关系：<承接 / 并列 / 递进 / 补反例，第 NN 篇>
+- S5 排序位次与理由：<...>（若调整默认递进顺序，写明原因）
+- S6 索引已回写：<✓ / 待回写>
 
 ## 标的卡
 - 所属大类：<A—G，见 research/01-industry-taxonomy.md>
@@ -49,19 +107,26 @@ FRAME = """# 0-frame: {target}
 - 时间范围：<...> / 地理范围：<...>
 
 ## 钩子
-<一句话矛盾：「按常识应该 A，实际却是 B」；找不到就换标的>
+- 类型：<A 方向翻转 / B 理论反例 / C 被算错的流行数>
+- 一句话：<按常识应该 A，实际却是 B；找不到就换标的>
+- 层级自检：<属于「性质翻转」还是「量的分解」？后者必须换题>
 
-## 五维打分（自动选题时填写）
+## 答得圆满预检
+- 钩子翻译成算式：<...>
+- 每一项的来源层级：<L0/L1/...>
+- 预判结论：<能闭合 / 不能闭合 → 换角度>
+
+## 五维打分
 | 维度 | 得分 | 依据 |
 |---|---|---|
 | 数据可查性 | ✓/✗ | <检索结果与来源> |
 | 生活可感性 | <1-5> | <生活场景> |
 | 机制独特性 | <1-5> | <预期杠杆> |
-| 新颖性 | <1-5> | <台账查重结果> |
+| 新颖性 | <1-5> | <索引 + 台账查重结果> |
 | 当期性 | +<n> | <当期矛盾> |
 """
 
-PHASES_CHECKPOINT = """# 领域分析：{target}（第 {issue:02d} 期）
+PHASES_CHECKPOINT = """# 领域分析：{target}（第 {issue:02d} 篇）
 
 > Phase 1—4 的完整推导记录。**正文最后一个写。**
 
@@ -84,7 +149,8 @@ PHASES_CHECKPOINT = """# 领域分析：{target}（第 {issue:02d} 期）
 
 ## P3 那根杠杆
 - 杠杆：
-- 准入三问（独有性/可量化/当期性）：
+- 准入四问（独有性 / 可量化 / 当期性 / 必要性反事实）：
+- 双层结构（机制层 + 不响应层）：
 - 传导时长与敏感性：
 - 对冲变量清单：
 - 多层乘法分解 + 反向验证：
@@ -118,9 +184,9 @@ STUBS = {
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="初始化本期分析工作目录")
-    parser.add_argument("--target", required=True, help="行业标的，边界须可界定")
-    parser.add_argument("--issue", type=int, default=1, help="期号，默认 1")
+    parser = argparse.ArgumentParser(description="初始化文章集内某一篇的工作目录")
+    parser.add_argument("--target", required=True, help="行业标的，边界须可界定；同时作为文章集名")
+    parser.add_argument("--issue", type=int, default=None, help="集内序号，默认自动取下一篇")
     parser.add_argument(
         "--form", choices=["longform", "report", "brief"], default="longform"
     )
@@ -131,22 +197,27 @@ def main() -> int:
 
     root = skill_root()
     out_root = Path(args.output_root).resolve() if args.output_root else root / "产出"
-    issue_dir = out_root / sanitize(args.target) / f"第{args.issue:02d}期"
+    safe_target = sanitize(args.target)
+    series_dir = out_root / safe_target
+    issue = args.issue if args.issue is not None else next_issue(series_dir)
+    issue_dir = series_dir / f"第{issue:02d}期"
 
     if issue_dir.exists():
         print(f"[skip] 目录已存在：{issue_dir}")
-        print("若为续写，直接编辑该目录内文件；若为新一期，请更换 issue。")
+        print("若为续写，直接编辑该目录内文件；若为新一篇，请更换 --issue。")
         return 1
 
     issue_dir.mkdir(parents=True, exist_ok=True)
     today = date.today().isoformat()
 
+    created_index = ensure_series_index(series_dir, safe_target, today)
+
     (issue_dir / "0-frame.md").write_text(
-        FRAME.format(target=args.target, today=today, issue=args.issue, form=args.form),
+        FRAME.format(target=args.target, today=today, issue=issue, form=args.form),
         encoding="utf-8",
     )
     (issue_dir / "领域分析.md").write_text(
-        PHASES_CHECKPOINT.format(target=args.target, issue=args.issue),
+        PHASES_CHECKPOINT.format(target=args.target, issue=issue),
         encoding="utf-8",
     )
 
@@ -161,7 +232,13 @@ def main() -> int:
             STUB.format(tpl=tpl, phase=STUBS[fname][1]), encoding="utf-8"
         )
 
-    print(f"[ok] 已初始化：{issue_dir}")
+    print(f"[ok] 文章集：{series_dir}")
+    print(f"[ok] 集内序号：第 {issue:02d} 篇 → {issue_dir}")
+    if created_index:
+        print(f"[ok] 已建索引骨架：{series_dir / SERIES_INDEX_NAME}")
+        print("    若该集已有历史产出，须在 P0 的 S1 回填篇目表；S6 回写本篇。")
+    else:
+        print(f"[i]  索引已存在，未改写：{series_dir / SERIES_INDEX_NAME}（由 S6 回写）")
     print("产出顺序：数据表 → 证据索引 → 领域分析 → 审校意见 → 正文")
     print("提醒：正文禁止出现数据表里没有的数字。")
     return 0

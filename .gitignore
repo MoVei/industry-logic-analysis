@@ -1,0 +1,12 @@
+# IDE / 编辑器
+.idea/
+.vscode/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 过程文件（按目录约定不得提交）
+*对照报告*.md
+*诊断*.md
+*草稿*.md

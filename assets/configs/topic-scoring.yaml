@@ -27,11 +27,16 @@ dimensions:
   - id: novelty
     name: 新颖性
     range: [1, 5]
-    source: references/ledger-analysis-topics.md
+    source:
+      primary: 产出/<行业>/_系列索引.md                 # 第一层：集内去重（主）
+      secondary: references/ledger-analysis-topics.md   # 第二层：跨集间隔（兜底）
     rules:
-      same_level2_interval: 6    # 同一二级细分 ≥6 期
-      same_level3_interval: 12   # 同一三级角度/同一根杠杆 ≥12 期
-      same_life_entry: never     # 生活入口场景不得复用
+      same_subdirection: never    # 集内子方向不得重复
+      same_perspective: never     # 集内切入视角不得重复
+      same_level2_interval: 6     # 跨集：同一二级细分 ≥6 期
+      same_level3_interval: 12    # 跨集：同一三级角度/同一根杠杆 ≥12 期
+      same_life_entry: never      # 生活入口场景不得复用
+    note: 集内去重优先于跨集间隔；间隔达标不构成放行条件
     eliminate_if_violated: true
 
   - id: timeliness
@@ -49,3 +54,28 @@ selection_policy:
   auto_confirm: false        # 选出 top1 直接执行，不需要向用户确认
   record_score_detail: true  # 打分明细必须写入 0-frame.md
   on_no_hook: 换标的          # 找不到任何矛盾必定写成百科词条
+
+# 文章集组织策略（v1.3.0）——只管选题与组织流程，不改写作风格与输出规范
+organization_policy:
+  unit: industry_series                  # 组织单位 = 行业文章集
+  series_root: 产出/<行业>/
+  series_index: 产出/<行业>/_系列索引.md
+  issue_numbering: series_local          # 集内序号，不是全局流水号
+  execution_order:                       # P0 强制顺序，不允许跳步或倒序
+    - S1_lock_series
+    - S2_three_source_scan
+    - S3_target_specificity
+    - S4_branch_decision
+    - S5_ordering
+    - S6_index_writeback
+  branches:
+    specific_target: S4-A_independence_check
+    vague_target_existing_series: S4-B_switch_perspective
+    vague_target_cold_start: S4-C_foundation_logic
+  cold_start_rule: 最易理解且最关键的基础逻辑，两类判据同时满足
+  ordering:
+    default: 由浅入深
+    hard_constraint: false               # 软约束，不是硬性约束
+    override_when: 递进会带偏系列主线 / 为凑层次须选低价值主题 / 高价值主题只在当前位置成立
+    priority: 内容价值 > 排序形式
+  dedup_priority: 集内已覆盖清单 > 跨集间隔规则
