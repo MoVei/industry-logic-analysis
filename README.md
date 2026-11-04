@@ -12,6 +12,9 @@
 
 ## 产出 · 文章集直达
 
+> 本节由 Skill 的 S6 步骤维护：篇目新增、改名、替换、状态变化、一句话修订、SOP 变动，都会在同一次任务内回写到这里。
+> 一致性由 `python scripts/helpers/check-readme.py` 核对（集未登记 / 断链 / 篇数不符 / 正文无直达），不通过即任务未完成。
+
 ### 碳酸锂（A 资源/大宗） — 已收录 2 篇 · [系列索引](产出/碳酸锂/_系列索引.md)
 
 系列主线：**这个行业的供给端对价格不敏感**——矿端按证照与合同走、冶炼在亏损中增产、只有渠道清库存，三个环节没有一个用减产回应跌价。
@@ -96,6 +99,7 @@ python scripts/helpers/check-ledger.py --series "碳酸锂"   # S2 三源检索�
 python scripts/helpers/init-analysis.py --target "碳酸锂" --stage 深挖 --title "仓单与基差"
 python scripts/helpers/check-sop-freshness.py --all        # 复用 SOP 前的时效检查
 python scripts/helpers/readability-check.py 正文.md        # 可读性门禁：正文编号与标签必须为 0
+python scripts/helpers/check-readme.py                     # README 与产出目录一致性（C1—C4）
 bash scripts/validate-skill.sh SKILL.md                    # 7 项合规自检
 ```
 

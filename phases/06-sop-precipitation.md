@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **输入** | 通过审校的五件套 |
-| **输出** | `references/domain-playbooks/<大类>-<细分>.md` + 本集索引回写 + 总台账追加 + 复用脚本状态更新 |
+| **输出** | `references/domain-playbooks/<大类>-<细分>.md` + 本集索引回写 + 总台账追加 + playbook README 索引 + **主 README 的 SOP 链接** |
 | **前置条件** | Phase 5 完成，审校通过 |
 | **完成条件** | SOP 九要素齐全、已定级、已写失效条款、**本集索引已回写**、总台账已追加 |
 
@@ -98,6 +98,8 @@
 ## 步骤 6.5：登记定级状态
 
 更新 `references/domain-playbooks/README.md` 的索引表：文件名 / 行业 / 定级 / last_verified / 当前状态。
+
+同时同步 `README.md` 对应集小节末尾的 SOP 链接：本篇新沉淀 playbook、或 playbook 改了文件名、或定级从 Draft 变为 Verified，都要在**同一次任务内**改掉，然后跑一次 `python scripts/helpers/check-readme.py`（F15）。SOP 链接断掉不会报错，只会让读者点空。
 
 ---
 
