@@ -5,16 +5,27 @@
 用法:
     python check-ledger.py --suggest                # 输出未覆盖且间隔达标的候选 + 间隔核查
     python check-ledger.py --check "生猪养殖"          # 检查某个标的能否写（返回退出码）
-    python check-ledger.py --series "宠物医疗"         # 三源检索，输出已覆盖清单与 S4 分支判定
+    python check-ledger.py --series "宠物医疗"         # 三源检索 + 索引收口检查，输出已覆盖清单与 S4 分支
     python check-ledger.py --dump                   # 打印台账全部记录
 
 退出码:
-    0 = 可写 / 检测正常完成 / 1 = 不可写（重复或间隔未到）
+    0 = 可写 / 检测通过
+    1 = 不可写（--check：重复或间隔未到）
+    2 = 索引收口检查不通过（--series：S1—S5 任一失败）
 
 三源检索（--series，对应 P0 的 S2）:
     ① 文章集总台账  references/ledger-analysis-topics.md   §文章集注册表
     ② 本集索引     产出/<行业>/_系列索引.md                  §篇目表 / §已覆盖清单
     ③ 实际产出目录  产出/<行业>/NN-<阶段>-<标题>／
+
+索引收口检查（--series 附带，对应 S6 的「索引未回写视为未完成」）:
+    S1 三节（子方向 / 视角 / 生活入口）内容不得两两相同
+    S2 任一节内不得出现重复条目
+    S3 篇目表与已覆盖清单不得残留「待回填」等占位或 <模板> 占位
+    S4 索引须存在且篇目表非空（磁盘已有篇目目录时）
+    S5 篇目表登记的目录须存在于磁盘，磁盘上的篇目目录须已入表
+    说明：钩子类型是分布表（A/B/C 计数），不参与 S1 比对；
+          S3 只扫篇目表单元格与四节条目，不扫正文叙述与维护记录里的历史引用。
 """
 
 import argparse
@@ -40,7 +51,13 @@ CLASS_KEYWORDS = {
 }
 
 
+ROOT_OVERRIDE = None  # 由 --root 设置为 Path；None 表示用脚本所在位置
+
+
 def skill_root() -> Path:
+    """默认取本脚本所在 skill 根目录；--root 可指向测试夹具，便于回归。"""
+    if ROOT_OVERRIDE is not None:
+        return ROOT_OVERRIDE
     return Path(__file__).resolve().parent.parent.parent
 
 
@@ -161,6 +178,117 @@ def scan_output_dirs(industry: str) -> list[str]:
     )
 
 
+# ---------------------------- 索引收口检查（S1—S5） ---------------------------
+
+INDEX_SECTIONS = ("子方向", "视角", "生活入口")
+INDEX_ALL_SECTIONS = ("子方向", "视角", "生活入口", "钩子类型")
+SECTION_LABEL = {
+    "子方向": "已覆盖子方向",
+    "视角": "已用切入视角",
+    "生活入口": "已用生活入口",
+    "钩子类型": "钩子类型分布",
+}
+# 占位词：S6 收口时不应留在篇目表或已覆盖清单里
+PLACEHOLDER_RE = re.compile(r"待回填|待成稿|待补|TBD|TODO|<[\u4e00-\u9fa5A-Za-z_]{1,12}>")
+
+
+def _norm_item(text: str) -> str:
+    """条目归一：压缩空白，用于判定重复。"""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _looks_like_dir(cell: str) -> bool:
+    """篇目表第 2 列是否是一个目录名（而非「—」「待定」这类自由文本）。"""
+    c = cell.strip().strip("`").rstrip("/")
+    return bool(c) and (c.startswith("存档-") or re.match(r"^\d+-", c) is not None)
+
+
+def _clip(text: str, width: int = 26) -> str:
+    t = _norm_item(text)
+    return t if len(t) <= width else t[:width] + "…"
+
+
+def index_checks(industry: str, index: dict, dirs: list[str]) -> list[dict]:
+    """S1—S5：索引本身的收口质量与三源一致性。返回 [{code, name, ok, detail}]。"""
+    results: list[dict] = []
+
+    def add(code: str, name: str, ok: bool, detail: str) -> None:
+        results.append({"code": code, "name": name, "ok": ok, "detail": detail})
+
+    base = skill_root() / OUTPUT_REL / industry
+    covered = index.get("covered", {})
+    articles = index.get("articles", [])
+
+    if not index["exists"]:
+        skip = "索引缺失，跳过"
+        add("S1", "三节内容不得两两相同", True, skip)
+        add("S2", "节内不得重复条目", True, skip)
+        add("S3", "不得残留占位", True, skip)
+        if dirs:
+            add("S4", "索引存在且篇目表非空", False,
+                f"索引缺失，但磁盘已有 {len(dirs)} 个篇目目录 → 须在 S1 补建并从目录回填")
+        else:
+            add("S4", "索引存在且篇目表非空", True, "无索引且无篇目目录：冷启动，由 S1 建骨架")
+        add("S5", "篇目表目录与磁盘一致", True, skip)
+        return results
+
+    # S1 三节两两相同
+    sets = {k: {_norm_item(x) for x in covered.get(k, []) if _norm_item(x)} for k in INDEX_SECTIONS}
+    same = [f"{a}＝{b}" for i, a in enumerate(INDEX_SECTIONS)
+            for b in INDEX_SECTIONS[i + 1:] if sets[a] and sets[a] == sets[b]]
+    add("S1", "三节内容不得两两相同", not same,
+        "；".join(same) + "（三节被填成同一串）" if same else "三节各自独立")
+
+    # S2 节内重复
+    dup_detail = []
+    for k in INDEX_ALL_SECTIONS:
+        items = [_norm_item(x) for x in covered.get(k, []) if _norm_item(x)]
+        seen, dup = set(), []
+        for it in items:
+            if it in seen and it not in dup:
+                dup.append(it)
+            seen.add(it)
+        if dup:
+            dup_detail.append(f"{SECTION_LABEL[k]} 重复 {len(dup)} 条：" + "／".join(_clip(d) for d in dup))
+    add("S2", "节内不得重复条目", not dup_detail, "；".join(dup_detail) or "无重复")
+
+    # S3 占位残留（只扫篇目表单元格与四节条目）
+    scope: list[str] = []
+    for cells in articles:
+        scope.extend(cells)
+    for k in INDEX_ALL_SECTIONS:
+        scope.extend(covered.get(k, []))
+    hits = [t for t in scope if PLACEHOLDER_RE.search(t)]
+    add("S3", "不得残留占位", not hits,
+        f"{len(hits)} 处：" + "／".join(_clip(h, 22) for h in hits[:3]) if hits else "无占位")
+
+    # S4 索引与篇目表非空
+    if not articles and dirs:
+        add("S4", "索引存在且篇目表非空", False,
+            f"篇目表 0 行，但磁盘已有 {len(dirs)} 个篇目目录")
+    elif not articles:
+        add("S4", "索引存在且篇目表非空", True, "空文章集（尚未登记篇目）")
+    else:
+        add("S4", "索引存在且篇目表非空", True, f"篇目表 {len(articles)} 行")
+
+    # S5 篇目表 ↔ 磁盘
+    listed = [cells[1].strip().strip("`").rstrip("/") for cells in articles
+              if len(cells) > 1 and _looks_like_dir(cells[1])]
+    missing = [x for x in listed if not (base / x).is_dir()]
+    unlisted = [x for x in dirs if x not in listed]
+    if missing or unlisted:
+        parts = []
+        if missing:
+            parts.append("表中有、盘上无：" + "／".join(missing))
+        if unlisted:
+            parts.append("盘上有、表中无：" + "／".join(unlisted))
+        add("S5", "篇目表目录与磁盘一致", False, "；".join(parts))
+    else:
+        add("S5", "篇目表目录与磁盘一致", True, f"{len(listed)} 个目录双向对得上")
+
+    return results
+
+
 def cmd_series(industry: str) -> int:
     registry = read_registry(industry)
     index = read_series_index(industry)
@@ -197,6 +325,14 @@ def cmd_series(industry: str) -> int:
         print("【已覆盖清单】索引缺失，须在 S1 补建并从产出目录回填。")
         print()
 
+    checks = index_checks(industry, index, dirs)
+    failed = [c for c in checks if not c["ok"]]
+    print("【索引收口检查】")
+    for c in checks:
+        print(f"  {c['code']} {c['name']}：{'✅' if c['ok'] else '❌'} {c['detail']}")
+    print(f"  → {'通过' if not failed else f'不通过（{len(failed)} 项），S6 判未完成，不得进入 P1'}")
+    print()
+
     print(f"【S2 判定】集内已收录篇数：{article_count} → {'已有研究' if has_research else '冷启动'}")
     print("【S4 分支】按 S3 的目标具体度二选一：")
     print("  目标具体     → S4-A 独立性检查（该子方向/视角是否在已覆盖清单里）")
@@ -207,8 +343,9 @@ def cmd_series(industry: str) -> int:
         print("  目标不具体   → S4-C 基础逻辑开篇：选最易理解且最关键的基础逻辑作为第 01 篇")
     print()
     print("【S5】默认由浅入深，内容价值优先；若递进会带偏方向，调整顺序或换主题。")
-    print("【S6】完成后回写本集索引与本台账注册表。")
-    return 0
+    print("【S6】完成后三处回写：① 本集索引 _系列索引.md ② 总台账注册表 ③ README 产出直达。")
+    print("     收尾须两个检查同时为 0：check-readme.py（C1—C4）与本命令（S1—S5）。")
+    return 2 if failed else 0
 
 
 def cmd_suggest(rows: list[dict]) -> int:
@@ -272,12 +409,18 @@ def cmd_dump(rows: list[dict]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="防重复台账查重与文章集组织判定")
+    parser.add_argument("--root", metavar="DIR", help="skill 根目录（默认取脚本位置；测试夹具用）")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--suggest", action="store_true", help="给出选题建议")
     group.add_argument("--check", metavar="TARGET", help="检查某标的可否写")
-    group.add_argument("--series", metavar="INDUSTRY", help="三源检索，输出文章集已覆盖清单与 S4 分支")
+    group.add_argument("--series", metavar="INDUSTRY",
+                       help="三源检索 + 索引收口检查（S1—S5），输出已覆盖清单与 S4 分支；不通过退出码 2")
     group.add_argument("--dump", action="store_true", help="打印台账记录")
     args = parser.parse_args()
+
+    global ROOT_OVERRIDE
+    if args.root:
+        ROOT_OVERRIDE = Path(args.root).expanduser().resolve()
 
     if args.series:
         return cmd_series(args.series)

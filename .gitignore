@@ -10,3 +10,7 @@ Thumbs.db
 *对照报告*.md
 *诊断*.md
 *草稿*.md
+
+# Python 缓存（编译检查产生）
+__pycache__/
+*.pyc

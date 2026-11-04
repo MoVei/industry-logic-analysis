@@ -13,7 +13,7 @@ description: |
   触发词：「分析这个行业」「拆解产业链」「需求端逻辑」「行业运行逻辑」「这个行业怎么赚钱」「帮我看看 X 行业的投资常识」
   「行业 SOP」「下一个行业分析什么」「继续写这个行业」「这个行业还能写什么」「给这个行业再写一篇」
   「分析这家公司」「X 公司基本面」「看看 0772.HK」「这家公司怎么赚钱」。
-version: 1.6.0
+version: 1.7.0
 author: standardized-skill-generation
 tags: [industry-analysis, demand-side, supply-chain, sop, company-analysis, fundamental-research]
 compatibility:
@@ -276,7 +276,7 @@ IF 用户在公司分析中要求横向比较多家公司
 | **S3** | 判定目标具体度 | 用户给的是行业名还是明确子方向 |
 | **S4** | 分支裁决 | 具体 → S4-A 独立性；不具体且已有研究 → S4-B 去重换视角；不具体且冷启动 → S4-C 基础逻辑开篇 |
 | **S5** | 排序归位 | 默认由浅入深，**软约束**；递进会带偏方向则调整顺序或换主题，内容价值优先 |
-| **S6** | 三处回写 | 本集索引 + 总台账注册表（供下次 S2）+ **README 产出直达**（供读者）；README 链接在 P5 定稿后补齐并跑 `check-readme.py` |
+| **S6** | 三处回写 | 本集索引 + 总台账注册表（供下次 S2）+ **README 产出直达**（供读者）；README 链接在 P5 定稿后补齐；收尾须 `check-readme.py`（C1—C4）与 `check-ledger.py --series`（S1—S5）**同时为 0** |
 
 **顺序不可逆**：S2 的已覆盖清单是 S4 全部判断的唯一数据基础；S4-B 与 S4-C 的先后是「先判是否已有研究，再决定切换还是开篇」；S6 写回的内容来自 S4 与 S5。先定题再检索会直接造成重复选题。
 详见 [`phases/00-select-and-frame.md`](phases/00-select-and-frame.md)。
@@ -378,6 +378,17 @@ F15 产出目录发生任何变动（新增篇目 / 目录改名 / 正文标题�
     AND  任务收尾跑 check-readme.py，C1—C4 全过才算完成
     NOT  不许留到「下次一起补」——链接是按目录名写的相对路径，断链在页面上不报错
     BECAUSE 集索引与总台账服务下一次选题，README 是读者看到的唯一入口；缺 README 的文章等于没发表
+
+F16 集索引出现内容层收口缺陷（`check-ledger.py --series` 报 S1 三节互相复制 / S2 节内重复 / S3 占位残留）
+    THEN 按三节各自职责重写该节：子方向管「拆过哪块地」、视角管「用什么角度拆的」、生活入口管「从哪个场景入场」
+    AND  删重复条目与「待回填」类占位；占位确无来源时写明缺口，不留空壳
+    NOT  不许把「已修正」写进维护记录而清单正文未改
+    BECAUSE 索引是 S2 去重的唯一依据：三节混成一串会让 S4-B 误判某角度已被占，或反过来漏判重复
+
+F17 集索引与实际产出目录不一致（`--series` 报 S4 索引缺失或篇目表空 / S5 目录双向不符）
+    THEN 补建索引并从磁盘目录回填；目录改名后同步改篇目表「目录」列
+    AND  非 0 退出即 S6 判未完成，不得进入 P1
+    BECAUSE 篇目表是按目录名索引的；改名不更表，S2 读到的就是一套磁盘上不存在的篇目
 ```
 
 ### 认知规则（需要判断力）
@@ -449,6 +460,7 @@ C8  情景：S5 默认递进顺序与内容价值冲突，一时判不清是否�
 | 冷启动却用冷门视角开篇 | S4-C 两类判据自检 | 回 S4-C 重选基础逻辑 | ❌ |
 | 索引未回写就进入 P1 | S6 检查 | 补写本集索引与注册表后再放行 | ❌ |
 | **产出变了但 README 没变**（集未登记 / 断链 / 篇数不符 / 正文无直达） | `check-readme.py` 报 C1—C4 | 补 README 五处后重跑，非 0 不收尾 | ❌ |
+| **集索引自身不完备**（三节互相复制 / 节内重复 / 占位残留 / 索引缺失 / 目录不符） | `check-ledger.py --series` 报 S1—S5 | 按三节职责重写该节并清占位；目录不符则补建或更表，退出码归 0 再放行 | ❌ |
 | **公司标的无法消歧**（同名/多地上市） | 多个代码匹配 | 反问锁定唯一代码，**不产出** | ✅ |
 | **财报 PDF 原文拿不到** | Step 1 检索无果 | 写缺口并降级；不得用媒体数据补位 | ❌ |
 | **core 5 项财务缺失 ≥2 项** | Step 2 提取结果 | 判定不适合产出报告，告知缺什么、去哪补 | ❌ |
@@ -513,6 +525,7 @@ C8  情景：S5 默认递进顺序与内容价值冲突，一时判不清是否�
 - [ ] 冷启动第 01 篇是否为「最易理解且最关键」的基础逻辑，两类判据同时满足
 - [ ] S5 是否默认由浅入深；调整顺序或换主题时，索引 §排序说明 是否写明理由
 - [ ] S6 本集索引与总台账注册表是否已回写（下次 S2 能读到）
+- [ ] **集索引是否过收口检查**：`check-ledger.py --series` 退出码为 0（S1 三节不互相复制 / S2 无重复条目 / S3 无占位 / S4 索引与篇目表非空 / S5 目录双向一致）
 - [ ] **README 是否同步五处**（集篇数 / 篇目表行 / 一句话 / SOP 链接 / 目录树），且 `check-readme.py` C1—C4 全过
 - [ ] README 的「一句话」是否取自该篇钩子或杠杆，没有写成宣传语；直达链接是否指向正文、数据表、审校三个文件
 
@@ -591,7 +604,7 @@ phenomenon: 能繁母猪砍到 3602 万头，为什么猪价还在跌
 | 台账 | [`references/ledger-analysis-topics.md`](references/ledger-analysis-topics.md) | 文章集总台账 / 注册表（第一入口）+ 逐篇审计；动笔前必读、写完后必追加 |
 | 台账 | `产出/<行业>/_系列索引.md` | 文章集索引（集内去重第一依据）：篇目表 + 已覆盖清单 + 排序说明 |
 | SOP | [`references/domain-playbooks/`](references/domain-playbooks/) | 细分行业 SOP（含 README 与模板） |
-| 决策 | [`references/decisions.md`](references/decisions.md) | 28 条关键设计决策与备选方案 |
+| 决策 | [`references/decisions.md`](references/decisions.md) | 29 条关键设计决策与备选方案 |
 | 模板 | [`assets/templates/`](assets/templates/) | 长文/报告/速览/公司报告/数据表/证据索引/信号表/文章集索引 |
 | 模板 | [`assets/templates/series-index-template.md`](assets/templates/series-index-template.md) | 文章集索引：篇目表 + 已覆盖清单 + 待覆盖方向 + 排序说明 |
 | 模板 | [`assets/templates/company-report-template.md`](assets/templates/company-report-template.md) | 11 节公司研究报告模板 |
@@ -599,9 +612,10 @@ phenomenon: 能繁母猪砍到 3602 万头，为什么猪价还在跌
 | 配置 | [`assets/configs/company-analysis.yaml`](assets/configs/company-analysis.yaml) | 12 项清单、六维框架、9 条验收标准 |
 | 脚本 | [`scripts/helpers/`](scripts/helpers/) | 初始化（集内序号 + 索引骨架）、查重（含 `--series` 三源检索）、SOP 时效校验 |
 | 脚本 | [`scripts/helpers/readability-check.py`](scripts/helpers/readability-check.py) | 可读性体检：R1—R11 逐项判定，正文编号与标签为一票否决 |
+| 脚本 | [`scripts/helpers/check-ledger.py`](scripts/helpers/check-ledger.py) | 查重与三源检索（`--series`，含 S1—S5 索引收口检查，不通过退出码 2） |
 | 脚本 | [`scripts/helpers/check-readme.py`](scripts/helpers/check-readme.py) | README 与产出目录一致性：C1 集未登记 / C2 断链 / C3 篇数不符 / C4 正文无直达 |
 | 自检 | [`scripts/validate-skill.sh`](scripts/validate-skill.sh) | 合规性自检：`<路径> SKILL.md`，7/7 通过方为合规 |
-| 测试 | [`tests/`](tests/) | 7 组用例与期望输出 |
+| 测试 | [`tests/`](tests/) | 8 组用例与期望输出 |
 
 **外部权威源**（单向同步：后者变动时本 Skill 须跟进）
 
@@ -616,6 +630,7 @@ phenomenon: 能繁母猪砍到 3602 万头，为什么猪价还在跌
 
 | 版本 | 日期 | 变更说明 |
 |------|------|---------|
+| 1.7.0 | 2026-11-04 | **集索引收口检查入脚本**（D29）。用户指出两处缺陷：集索引的三节互相复制、节内重复、占位残留全靠人工发现，且脚本结尾提示仍写「回写本集索引与本台账注册表」，与 v1.6.0 的三处回写不一致。`check-ledger.py --series` 新增 S1 三节不得两两相同 / S2 节内不得重复条目 / S3 不得残留占位 / S4 索引存在且篇目表非空 / S5 篇目表目录与磁盘双向一致，失败退出码 **2**；结尾提示改为三处回写并要求 `check-readme.py` 与本命令同时为 0。新增流程规则 F16、F17，异常表一行、校准清单一条。实测先拦下现存缺陷：碳酸锂索引「已用生活入口」第 1 与第 3 条一字不差，已清除并记入维护记录。**取证纪律、可读性门禁、第〇节边界、P0 分支逻辑、company 轨均未改动** |
 | 1.6.0 | 2026-11-04 | **README 同步成为 S6 的第三处回写**（D28）。用户执行本 Skill 后发现新产出不写进 README，故把 README 的「产出直达清单」定为对外出口：篇目新增／目录改名／正文标题变更／旧稿改 `存档-`／状态改已成稿／一句话修订／SOP 变动／新建集，任一发生即须在**同一次任务内**回写 README 五处（集篇数、篇目表行、一句话、SOP 链接、目录树），并以新增的 `scripts/helpers/check-readme.py`（C1 集未登记 / C2 断链 / C3 篇数不符 / C4 正文无直达）验证，非 0 不收尾。S6 由「回写两处」扩为「三处」，新增流程规则 F15、异常表一行、校准清单两条、case-07 用例。**取证纪律、可读性门禁、第〇节边界、P0 分支逻辑、company 轨均未改动** |
 | 1.5.0 | 2026-11-03 | **读者层与可读性门禁**（D26、D27）。把正文读者正式定为「外行」：**双轨引用**——正文只写「机构 + 期间」，四类内容改用措辞区分（不再贴【事实】/【推演】），底稿编号移入文末「数字与出处对照表」，正文编号与标签**归零为一票否决**；新增 `references/research/08-readability-laypeople.md`（读者定义、版面、声部、R1—R11 门槛、口述稿工序）与 `scripts/helpers/readability-check.py`（11 项机械判定，常识四篇 0 超线、存量产出五篇全部不通过，门槛落在两组之间）；P5 新增「先口述、后核数」工序与 5.6 可读性门禁，五件套顺序不变。**取证纪律、第〇节边界、P0 选题链、company 轨均未改动**；存量 4 篇已发布稿不追改 |
 | 1.4.0 | 2026-11-03 | **目录命名与入口重构**（D24、D25）。集内篇目目录由 `第NN期/` 改为 **`NN-<阶段>-<标题>`**：NN 为集内顺序号，`<阶段>` 取开篇／展开／深挖／反例／边界，`<标题>` 取自正文首行缩略；**取代 v1.3.0 的「迁移期不重编号、顺延取号」**，存量五个目录已用 `git mv` 全部改名；被替换旧稿改用 `存档-` 前缀且不占序号，索引以 `01R` 指向新目录。`init-analysis.py` 新增 `--stage`／`--title`，`check-ledger.py --series` 的目录识别同步改写。**README 重构为「简介 ＋ 产出直达」**，原文改名为 `方法论与目录结构.md`。单篇规范、四道门禁、第〇节边界与 company 轨均未改动 |

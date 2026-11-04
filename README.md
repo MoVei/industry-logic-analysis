@@ -95,7 +95,7 @@
 ## 常用命令
 
 ```bash
-python scripts/helpers/check-ledger.py --series "碳酸锂"   # S2 三源检索：已覆盖清单与分支判定
+python scripts/helpers/check-ledger.py --series "碳酸锂"   # 三源检索 + 索引收口 S1—S5（不通过退出码 2）
 python scripts/helpers/init-analysis.py --target "碳酸锂" --stage 深挖 --title "仓单与基差"
 python scripts/helpers/check-sop-freshness.py --all        # 复用 SOP 前的时效检查
 python scripts/helpers/readability-check.py 正文.md        # 可读性门禁：正文编号与标签必须为 0
